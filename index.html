@@ -1,10 +1,8 @@
-
 <!DOCTYPE html>
 <html>
 
 <head>
-    <title>Calculadora de Frete</title>
-    <link rel="stylesheet" type="text/css" href="styles.css">
+    <title>Procorpus Boot</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.8/xlsx.full.min.js"></script>
     <style>
@@ -124,7 +122,6 @@
                     <th>Volume</th>
                     <th>Valor</th>
                     <th>Peso</th>
-                    <th>Km</th>
                     <th>Frete</th>
                     <th>Imprimir</th>
                 </tr>
@@ -135,174 +132,205 @@
     </div>
 
     <script>
+
         function handleFile(files) {
             var file = files[0];
             var reader = new FileReader();
 
             reader.onload = function (e) {
-                var data = new Uint8Array(e.target.result);
-                var workbook = XLSX.read(data, { type: 'array' });
-                var sheet = workbook.Sheets[workbook.SheetNames[0]];
+                try {
+                    var data = new Uint8Array(e.target.result);
+                    var workbook = XLSX.read(data, { type: 'array' });
+                    var sheet = workbook.Sheets[workbook.SheetNames[0]];
 
-                var table = document.getElementById('resultTable');
-                var tableBody = document.getElementById('resultBody');
-                tableBody.innerHTML = '';
+                    var table = document.getElementById('resultTable');
+                    var tableBody = document.getElementById('resultBody');
+                    tableBody.innerHTML = '';
 
-                var range = XLSX.utils.decode_range(sheet['!ref']);
-                for (var R = range.s.r + 1; R <= range.e.r; R++) {
-                    var cidade = sheet[XLSX.utils.encode_cell({ c: 0, r: R })].v;
-                    var volume = sheet[XLSX.utils.encode_cell({ c: 1, r: R })].v;
-                    var valor = sheet[XLSX.utils.encode_cell({ c: 2, r: R })].v;
-                    var peso = sheet[XLSX.utils.encode_cell({ c: 3, r: R })].v;
-                    var km = calcularKm(cidade);
+                    var range = XLSX.utils.decode_range(sheet['!ref']);
+                    for (var R = range.s.r + 1; R <= range.e.r; R++) {
+                        var cidade = sheet[XLSX.utils.encode_cell({ c: 0, r: R })].v;
+                        var volume = sheet[XLSX.utils.encode_cell({ c: 1, r: R })].v;
+                        var valor = sheet[XLSX.utils.encode_cell({ c: 2, r: R })].v;
+                        var peso = sheet[XLSX.utils.encode_cell({ c: 3, r: R })].v;
+                        var cnpjDestino = sheet[XLSX.utils.encode_cell({ c: 4, r: R })].v;
 
-                    var frete = calcularFrete(cidade, peso, km, valor); // Correção aqui
+                        // Calcula a cubagem ponderada
+                        var cubagemPonderada = calcularCubagemPonderada(volume, peso);
 
-                    var row = document.createElement('tr');
-                    row.innerHTML = `<td>${cidade}</td><td>${volume}</td><td>${valor}</td><td>${peso}</td><td>${km}</td><td>${frete.toFixed(2)}</td><td><button onclick="imprimirLinha(this)">Imprimir</button></td>`;
-                    tableBody.appendChild(row);
+                        // Exibe o resultado da cubagem ponderada no console
+                        console.log("Resultado da cubagem ponderada para a cidade " + cidade + ": " + cubagemPonderada);
+
+                        var km = calcularKm(cidade);
+                        var frete = calcularFrete(cidade, cubagemPonderada, km, valor, cnpjDestino);
+
+                        var row = document.createElement('tr');
+                        row.innerHTML = `<td>${cidade}</td><td>${volume}</td><td>${valor}</td><td>${peso}</td><td>${frete.toFixed(2)}</td><td><button onclick="imprimirLinha(this)">Imprimir</button></td>`;
+                        tableBody.appendChild(row);
+                    }
+
+                    table.style.display = 'table';
+                } catch (error) {
+                    console.error("Erro na leitura do arquivo:", error);
                 }
+            };
 
-                table.style.display = 'table';
+            reader.onerror = function (e) {
+                console.error("Erro ao ler o arquivo:", e);
             };
 
             reader.readAsArrayBuffer(file);
         }
 
+        function calcularCubagemPonderada(volume, peso) {
+            var medidasFixas = [0.44, 0.44, 0.44];
+            var cubagem = medidasFixas.reduce((acc, medida) => acc * medida, 1) * volume * 150;
+            var cubagemPonderada = Math.max(peso, cubagem);
+
+            return cubagemPonderada;
+        }
+
+
+
         function calcularKm(cidade) {
-    var cidadeSede = 'Jau';
-    var km = 0;
+            var cidadeSede = 'Jau';
+            var km = 0;
 
-    // Defina o km para cidades conhecidas
-    if (cidade === cidadeSede) {
-        km = 0;
-    } else if (cidade === 'campinas') {
-        km = 277;
-    } else if (cidade === 'brotas') {
-        km = 253;
-    } else if (cidade === 'Marilia') {
-        km = 220;
-    } else if (cidade === 'Ribeirao Preto') {
-        km = 155;
-    }
+            if (cidade === cidadeSede) {
+                km = 0;
+            } else if (cidade === 'campinas', 'bariri') {
+                km = 255;
+            } else if (cidade === 'bocaina') {
+                km = 253;
+            } else if (cidade === 'ibitinga') {
+                km = 220;
+            } else if (cidade === 'botucatu') {
+                km = 255;
+            }
 
-    return km;
-}
-
-function calcularFrete(cidade, peso, km, valor) {
-    var tabelaFrete = {
-        "1 a 100 km": {
-            "0 a 10kg": 13.75,
-            "11 a 20kg": 17.42,
-            "21 a 40kg": 21.62,
-            "41 a 60kg": 26.55,
-            "61 a 80kg": 32.71,
-            "81 a 100kg": 67.36,
-            "excedente": 0.89
-        },
-        "101 a 200 km": {
-            "0 a 10kg": 15.21,
-            "11 a 20kg": 18.86,
-            "21 a 40kg": 23.45,
-            "41 a 60kg": 29.32,
-            "61 a 80kg": 50.60,
-            "81 a 100kg": 67.89,
-            "excedente": 1.00
-        },
-        "201 a 400 km": {
-            "0 a 10kg": 18.56,
-            "11 a 20kg": 23.49,
-            "21 a 40kg": 28.10,
-            "41 a 60kg": 33.96,
-            "61 a 80kg": 49.72,
-            "81 a 100kg": 60.46,
-            "excedente": 1.20
-        },
-    };
-
-    var faixaKm = determinarFaixaKm(km);
-    var faixaPeso = determinarFaixaPeso(peso);
-
-    if (tabelaFrete[faixaKm] && tabelaFrete[faixaKm][faixaPeso]) {
-        var frete = tabelaFrete[faixaKm][faixaPeso];
-
-        // Adiciona a taxa de pedágio fixa
-        var taxaPedagioFixo = 5.02;
-        frete += taxaPedagioFixo;
-
-        // Adiciona a taxa de pedágio dinâmico (sem multiplicação)
-        var taxaPedagioDinamico = 5.02;
-        frete += taxaPedagioDinamico;
-
-        // Adiciona a taxa GRIS fixa
-        var taxaGRIS = 1.24;
-        frete += taxaGRIS;
-
-        // Adiciona 0,30% do valor da nota fiscal ao frete
-        var taxaNF = valor * 0.003; // 0,30% = 0.003
-        frete += taxaNF;
-
-        // Verifica se há frete excedente para peso acima de 100 kg
-        if (peso > 100) {
-            var pesoExcedente = peso - 100;
-            var freteExcedente = pesoExcedente * tabelaFrete[faixaKm]["excedente"];
-            frete += freteExcedente;
+            return km;
         }
 
-        // Se houver frete excedente, adiciona o valor da faixa "81 a 100kg" novamente
-        if (freteExcedente) {
-            frete += tabelaFrete[faixaKm]["81 a 100kg"];
+        function calcularFrete(cidade, peso, km, valor, cnpjDestino) {
+
+            var taxasDeFrete = {
+                "01455957000195": 125,
+                "06176436000201": 153.99,
+                "68149228000181": 76.99,
+            };
+            var tabelaFrete = {
+                "1 a 100 km": {
+                    "0 a 10kg": 13.75,
+                    "11 a 20kg": 17.42,
+                    "21 a 40kg": 21.62,
+                    "41 a 60kg": 26.55,
+                    "61 a 80kg": 32.71,
+                    "81 a 100kg": 67.36,
+                    "excedente": 0.89
+                },
+                "101 a 200 km": {
+                    "0 a 10kg": 15.21,
+                    "11 a 20kg": 18.86,
+                    "21 a 40kg": 23.45,
+                    "41 a 60kg": 29.32,
+                    "61 a 80kg": 50.60,
+                    "81 a 100kg": 67.89,
+                    "excedente": 1.00
+                },
+                "201 a 400 km": {
+                    "0 a 10kg": 18.56,
+                    "11 a 20kg": 23.49,
+                    "21 a 40kg": 28.10,
+                    "41 a 60kg": 33.96,
+                    "61 a 80kg": 49.72,
+                    "81 a 100kg": 60.46,
+                    "excedente": 1.196
+                },
+            };
+
+            var faixaKm = determinarFaixaKm(km);
+            var faixaPeso = determinarFaixaPeso(peso);
+
+            if (faixaPeso === "excedente" && peso > 100) {
+                faixaPeso = "81 a 100kg";
+            }
+
+            if (faixaKm !== "1 a 100 km" && km <= 100) {
+                faixaKm = "1 a 100 km";
+            }
+            if (tabelaFrete[faixaKm] && tabelaFrete[faixaKm][faixaPeso]) {
+                var fretePeso = tabelaFrete[faixaKm][faixaPeso];
+                console.log("Frete inicial (antes de qualquer adição): " + fretePeso);
+
+                var pedagio = Math.ceil(peso / 100) * 5.02;
+                console.log("Pedágio: " + pedagio);
+
+                var freteValor = valor * 0.00285;
+                console.log("Frete Valor: " + freteValor);
+
+                var griss = Math.max(valor * 0.001, 1.24);
+                console.log("Griss: " + griss);
+
+                var excessoPeso = Math.max(0, peso - 100) * 1.196;
+                console.log("Excesso de Peso: " + excessoPeso);
+
+                var taxaCnpj = taxasDeFrete[cnpjDestino] || 0;
+                console.log("Taxa CNPJ: " + taxaCnpj);
+
+                var impostoTotal = (fretePeso + pedagio + freteValor + griss + excessoPeso + taxaCnpj) / 0.0088 / 100;
+
+                console.log("Imposto Total (com taxa CNPJ): " + impostoTotal);
+
+                return impostoTotal;
+            }
+
+            return 0;
         }
 
-        return frete;
-    }
 
-    return 0; // Caso a faixa de peso ou de km não seja encontrada na tabela
-}
+        function determinarFaixaPeso(peso) {
+            if (peso >= 0 && peso <= 10) {
+                return "0 a 10kg";
+            } else if (peso >= 11 && peso <= 20) {
+                return "11 a 20kg";
+            } else if (peso >= 21 && peso <= 40) {
+                return "21 a 40kg";
+            } else if (peso >= 41 && peso <= 60) {
+                return "41 a 60kg";
+            } else if (peso >= 61 && peso <= 80) {
+                return "61 a 80kg";
+            } else if (peso >= 81 && peso <= 100) {
+                return "81 a 100kg";
+            } else {
+                return "excedente";
+            }
+        }
 
-function determinarFaixaPeso(peso) {
-    if (peso >= 0 && peso <= 10) {
-        return "0 a 10kg";
-    } else if (peso >= 11 && peso <= 20) {
-        return "11 a 20kg";
-    } else if (peso >= 21 && peso <= 40) {
-        return "21 a 40kg";
-    } else if (peso >= 41 && peso <= 60) {
-        return "41 a 60kg";
-    } else if (peso >= 61 && peso <= 80) {
-        return "61 a 80kg";
-    } else if (peso >= 81 && peso <= 100) {
-        return "81 a 100kg";
-    } else {
-        return "excedente";
-    }
-}
-
-function determinarFaixaKm(km) {
-    if (km >= 1 && km <= 100) {
-        return "1 a 100 km";
-    } else if (km >= 101 && km <= 200) {
-        return "101 a 200 km";
-    } else if (km >= 201 && km <= 400) {
-        return "201 a 400 km";
-    } else if (km >= 401 && km <= 600) {
-        return "401 a 600 km";
-    } else if (km >= 601 && km <= 800) {
-        return "601 a 800 km";
-    } else if (km >= 801 && km <= 1000) {
-        return "801 a 1000 km";
-    } else if (km >= 1001 && km <= 1200) {
-        return "1001 a 1200 km";
-    } else if (km >= 1201 && km <= 1400) {
-        return "1201 a 1400 km";
-    } else if (km >= 1401 && km <= 1800) {
-        return "1401 a 1800 km";
-    } else if (km >= 1801 && km <= 2000) {
-        return "1801 a 2000 km";
-    } else {
-        return "acima de 2000 km";
-    }
-}
+        function determinarFaixaKm(km) {
+            if (km >= 1 && km <= 100) {
+                return "1 a 100 km";
+            } else if (km >= 101 && km <= 200) {
+                return "101 a 200 km";
+            } else if (km >= 201 && km <= 400) {
+                return "201 a 400 km";
+            } else if (km >= 401 && km <= 600) {
+                return "401 a 600 km";
+            } else if (km >= 601 && km <= 800) {
+                return "601 a 800 km";
+            } else if (km >= 801 && km <= 1000) {
+                return "801 a 1000 km";
+            } else if (km >= 1001 && km <= 1200) {
+                return "1001 a 1200 km";
+            } else if (km >= 1201 && km <= 1400) {
+                return "1201 a 1400 km";
+            } else if (km >= 1401 && km <= 1800) {
+                return "1401 a 1800 km";
+            } else if (km >= 1801 && km <= 2000) {
+                return "1801 a 2000 km";
+            } else {
+                return "acima de 2000 km";
+            }
+        }
 
 
 
@@ -341,6 +369,11 @@ function determinarFaixaKm(km) {
             tableCopy.querySelectorAll('th')[5].remove();
             var wb = XLSX.utils.table_to_book(tableCopy, { sheet: 'Result' });
         }
+
+
+
+
+
     </script>
 </body>
 
